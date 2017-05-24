@@ -3,11 +3,11 @@ import sys
 from setuptools import setup
 
 PACKAGE = "pytest-allure-adaptor"
-VERSION = "1.7.5"
+VERSION = "1.7.7"
 
 install_requires = [
     "lxml>=3.2.0",
-    "pytest>=2.7.3,<=2.9.0",
+    "pytest>=2.7.3",
     "namedlist",
     "six>=1.9.0"
 ]

@@ -4,14 +4,13 @@ import pytest
 import argparse
 
 from collections import namedtuple
-from _pytest.junitxml import mangle_testnames
 from six import text_type
 
 from allure.common import AllureImpl, StepContext
 from allure.constants import Status, AttachmentType, Severity, \
     FAILED_STATUSES, Label, SKIPPED_STATUSES
 from allure.utils import parent_module, parent_down_from_module, labels_of, \
-    all_of, get_exception_message, now
+    all_of, get_exception_message, now, mangle_testnames
 from allure.structure import TestCase, TestStep, Attach, TestSuite, Failure, TestLabel
 
 
@@ -266,7 +265,9 @@ class AllureTestListener(object):
                     # still, that's no big deal -- test has already failed
                     # TODO: think about that once again
                     self.test.status = Status.BROKEN
-            self.report_case(item, report)
+            # if a test isn't marked as "unreported" or it has failed, add it to the report.
+            if not item.get_marker("unreported") or self.test.status in FAILED_STATUSES:
+                self.report_case(item, report)
 
 
 def pytest_runtest_setup(item):
@@ -294,7 +295,13 @@ class LazyInitStepContext(StepContext):
 
     @property
     def allure(self):
-        return self.allure_helper.get_listener()
+        l = self.allure_helper.get_listener()
+
+        # if listener has `stack` we are inside a test
+        # record steps only when that
+        # FIXME: this breaks encapsulation a lot
+        if hasattr(l, 'stack'):
+            return l
 
 
 class AllureHelper(object):
@@ -436,6 +443,7 @@ class AllureHelper(object):
         else:
             raise AttributeError
 
+
 MASTER_HELPER = AllureHelper()
 
 
@@ -480,7 +488,7 @@ class AllureAgregatingListener(object):
                     if t.id not in known_ids:
                         known_ids.add(t.id)
                         refined_tests.append(t)
-                s.tests[::-1] = refined_tests
+                s.tests = refined_tests[::-1]
 
                 with self.impl._reportfile('%s-testsuite.xml' % uuid.uuid4()) as f:
                     self.impl._write_xml(f, s)
